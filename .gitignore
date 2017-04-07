@@ -1,5 +1,4 @@
-﻿*         
-/obj/
-/Properties/
+﻿*
+*/        
 
-!*.cs
+!/Coroutine/*.cs
