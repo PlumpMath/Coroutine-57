@@ -19,6 +19,7 @@ namespace Coroutine
         List<IEnumerator> unblockedCoroutines = new List<IEnumerator>();
         List<IEnumerator> shouldRunNextFrame = new List<IEnumerator>();
         List<IEnumerator> shouldRunAfterTimes = new List<IEnumerator>();
+        Stack<IEnumerator> coroutineStack = new Stack<IEnumerator>();
 
         public void Update(double delta)
         {
@@ -37,28 +38,51 @@ namespace Coroutine
                 unblockedCoroutines.Add(coroutine);
             }
             shouldRunNextFrame.Clear();
-            foreach (IEnumerator coroutine in unblockedCoroutines)
+            for (int i = 0; i < unblockedCoroutines.Count; i++)
             {
-                while (coroutine.MoveNext())
+                IEnumerator coroutine = unblockedCoroutines[i];
+                coroutineStack.Clear();
+                IEnumerator node = coroutine;
+                while (node != null)
                 {
-                    if (coroutine.Current is WaitForSeconds)
+                    coroutineStack.Push(node);
+                    node = node.Current as IEnumerator;
+                }
+                bool shouldBreak = false;
+                while (coroutineStack.Count > 0 && !shouldBreak)
+                {
+                    node = coroutineStack.Pop();
+                    while (node.MoveNext())
                     {
-                        shouldRunAfterTimes.Add(coroutine);
-                        break;
+                        if (node.Current is WaitForSeconds)
+                        {
+                            shouldRunAfterTimes.Add(coroutine);
+                            shouldBreak = true;
+                            break;
+                        }
+                        else if (node.Current is IEnumerator)
+                        {
+                            coroutineStack.Push(node.Current as IEnumerator);
+                            node = node.Current as IEnumerator;
+                        }
                     }
                 }
             }
             unblockedCoroutines.Clear();
-            foreach (IEnumerator coroutine in shouldRunAfterTimes)
+            for (int i = 0; i < shouldRunAfterTimes.Count; )
             {
-                WaitForSeconds current = coroutine.Current as WaitForSeconds;
+                IEnumerator coroutine = shouldRunAfterTimes[i];
+                IEnumerator node = coroutine;
+                while (node.Current is IEnumerator) node = node.Current as IEnumerator;
+                WaitForSeconds current = node as WaitForSeconds;
                 current.WaitSeconds -= delta;
-                if (current.WaitSeconds <= 0)
+                if (!current.MoveNext())
                 {
                     shouldRunNextFrame.Add(coroutine);
                     shouldRunAfterTimes.Remove(coroutine);
-                    break;
+                    continue;
                 }
+                i++;
             }
         }
     }

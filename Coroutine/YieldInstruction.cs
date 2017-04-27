@@ -13,7 +13,7 @@ namespace Coroutine
         public object Current { get; set; }
         public bool MoveNext()
         {
-            return true;
+            return WaitSeconds > 0;
         }
         public void Reset()
         {
